@@ -112,6 +112,9 @@ registerForEvent('onDraw', function()
 
         logger.info(nil)
         logger.info({key1 = "value1", key2 = 42, nested = {a = 1, b = 2}}, true)
+
+        logger.warn("This is a warning message.")
+        logger.error("This is an error message.")
     end
 
     ImGui.End()
