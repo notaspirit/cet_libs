@@ -6,8 +6,8 @@
 local logger = require("libs/logger")
 
 ---@class json
----@field stringify fun(value: table, prettyPrint: boolean, indentLevel: number):string
----@field parse fun(jsonStr: string):table
+---@field stringify fun(value: table, prettyPrint: boolean?, indentLevel: number?):string
+---@field parse fun(jsonStr: string):table?
 local json = {}
 json.__index = json
 
@@ -22,8 +22,8 @@ local function escapeString(str)
 end
 
 ---@param value table
----@param prettyPrint boolean
----@param indentLevel number
+---@param prettyPrint boolean?
+---@param indentLevel number?
 ---@return string
 function json.stringify(value, prettyPrint, indentLevel)
     prettyPrint = prettyPrint or false
@@ -70,22 +70,22 @@ end
 function json.parse(jsonStr)
     -- Remove whitespace
     jsonStr = jsonStr:gsub("^%s*(.-)%s*$", "%1")
-    
+
     local pos = 1
-    
-    if jsonStr:sub(pos, pos) ~= "{" or jsonStr:sub(pos, pos) ~= "[" then
-        logger.info("JSON Error: Expected '{' or '[' at position " .. pos)
+
+    if jsonStr:sub(pos, pos) ~= "{" and jsonStr:sub(pos, pos) ~= "[" then
+        logger.error("JSON Error: Expected '{' or '[' at position " .. pos)
         return nil
     end
 
     local function parseValue()
         local char = jsonStr:sub(pos, pos)
-        
+
         if jsonStr:sub(pos, pos + 3) == "null" then
             pos = pos + 4
             return nil
         end
-        
+
         if jsonStr:sub(pos, pos + 3) == "true" then
             pos = pos + 4
             return true
@@ -94,13 +94,13 @@ function json.parse(jsonStr)
             pos = pos + 5
             return false
         end
-        
+
         local num = jsonStr:match("^-?%d+%.?%d*[eE]?[+-]?%d*", pos)
         if num then
             pos = pos + #num
             return tonumber(num)
         end
-        
+
         if char == '"' then
             local value = ""
             pos = pos + 1
@@ -113,7 +113,7 @@ function json.parse(jsonStr)
                 if char == '\\' then
                     pos = pos + 1
                     if pos > #jsonStr then
-                        logger.info("JSON Error: Unclosed escape sequence in string at position " .. pos)
+                        logger.error("JSON Error: Unclosed escape sequence in string at position " .. pos)
                         return nil
                     end
                     char = jsonStr:sub(pos, pos)
@@ -127,7 +127,7 @@ function json.parse(jsonStr)
                 value = value .. char
                 pos = pos + 1
             end
-            logger.info("JSON Error: Unclosed string, reached end of string")
+            logger.error("JSON Error: Unclosed string, reached end of string")
             return nil
         end
         
@@ -153,7 +153,7 @@ function json.parse(jsonStr)
                 
                 local value = parseValue()
                 if value == nil then
-                    logger.info("JSON Error: Failed to parse array value at position " .. pos)
+                    logger.error("JSON Error: Failed to parse array value at position " .. pos)
                     return nil
                 end
                 table.insert(arr, value)
@@ -172,7 +172,7 @@ function json.parse(jsonStr)
                     elseif char == ',' then
                         pos = pos + 1
                     else
-                        logger.info("JSON Error: Expected ',' or ']' in array at position " .. pos .. ", found '" .. char .. "'")
+                        logger.error("JSON Error: Expected ',' or ']' in array at position " .. pos .. ", found '" .. char .. "'")
                         return nil
                     end
                 end
@@ -182,7 +182,7 @@ function json.parse(jsonStr)
                     pos = pos + 1
                 end
             end
-            logger.info("JSON Error: Unclosed array, reached end of string")
+            logger.error("JSON Error: Unclosed array, reached end of string")
             return nil
         end
         
@@ -210,12 +210,12 @@ function json.parse(jsonStr)
                     end
                     
                     if pos > #jsonStr then
-                        logger.info("JSON Error: Expected ':' after key '" .. key .. "' but reached end of string")
+                        logger.error("JSON Error: Expected ':' after key '" .. key .. "' but reached end of string")
                         return nil
                     end
                     
                     if jsonStr:sub(pos, pos) ~= ':' then
-                        logger.info("JSON Error: Expected ':' after key '" .. key .. "' at position " .. pos .. ", found '" .. jsonStr:sub(pos, pos) .. "'")
+                        logger.error("JSON Error: Expected ':' after key '" .. key .. "' at position " .. pos .. ", found '" .. jsonStr:sub(pos, pos) .. "'")
                         return nil
                     end
                     pos = pos + 1
@@ -227,7 +227,7 @@ function json.parse(jsonStr)
                     
                     obj[key] = parseValue()
                     if obj[key] == nil then
-                        logger.info("JSON Error: Failed to parse value for key '" .. key .. "' at position " .. pos)
+                        logger.error("JSON Error: Failed to parse value for key '" .. key .. "' at position " .. pos)
                         return nil
                     end
                     
@@ -245,7 +245,7 @@ function json.parse(jsonStr)
                         elseif char == ',' then
                             pos = pos + 1
                         else
-                            logger.info("JSON Error: Expected ',' or '}' in object at position " .. pos .. ", found '" .. char .. "'")
+                            logger.error("JSON Error: Expected ',' or '}' in object at position " .. pos .. ", found '" .. char .. "'")
                             return nil
                         end
                     end
@@ -255,14 +255,14 @@ function json.parse(jsonStr)
                         pos = pos + 1
                     end
                 else
-                    logger.info("JSON Error: Expected '\"' for object key at position " .. pos .. ", found '" .. char .. "'")
+                    logger.error("JSON Error: Expected '\"' for object key at position " .. pos .. ", found '" .. char .. "'")
                     return nil
                 end
             end
-            logger.info("JSON Error: Unclosed object, reached end of string")
+            logger.error("JSON Error: Unclosed object, reached end of string")
             return nil
         end
-        logger.info("JSON Error: Unexpected character at position " .. pos .. ": '" .. char .. "'")
+        logger.error("JSON Error: Unexpected character at position " .. pos .. ": '" .. char .. "'")
         return nil
     end
     
